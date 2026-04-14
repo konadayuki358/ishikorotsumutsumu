@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>石ころ積む積む</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header card">
+      <div class="header-inner">
+        <div class="title-wrap">
+          <h1>石ころ積む積む</h1>
+          <p class="subtitle">ころん、ころん。どこまで積める？</p>
+        </div>
+        <button id="transferButtonDesktop" class="transfer-button desktop-transfer-button" type="button">引き継ぎはこちら</button>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="game-panel card">
+        <div class="canvas-wrap">
+          <canvas id="gameCanvas" aria-label="石ころ積む積むのゲーム画面"></canvas>
+
+          <div class="canvas-overlay-top" aria-label="ゲーム画面上部の情報表示">
+            <div class="canvas-highscore" aria-label="ハイスコア表示">
+              <div class="canvas-highscore-title">ハイスコア</div>
+              <div class="score-grid canvas-score-grid">
+                <div class="score-item compact-score-item">
+                  <span>ノーマル</span>
+                  <strong id="high-normal">0</strong>
+                </div>
+                <div class="score-item compact-score-item">
+                  <span>ハード</span>
+                  <strong id="high-hard">0</strong>
+                </div>
+                <div class="score-item compact-score-item">
+                  <span>ヘル</span>
+                  <strong id="high-hell">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="canvas-message-card" aria-label="メッセージ表示">
+              <div class="canvas-info-title">メッセージ</div>
+              <p id="message" class="message canvas-message" aria-live="polite">石を積んでみよう。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="ui-panel">
+        <div class="card status-card">
+          <div class="status-top">
+            <div>
+              <div class="label">現在のモード</div>
+              <div id="currentMode" class="big-text">ノーマル</div>
+            </div>
+            <div>
+              <div class="label">今の積み数</div>
+              <div id="currentCount" class="big-text">0個</div>
+            </div>
+            <div>
+              <div class="label">今まで置いた石の数</div>
+              <div id="currentTotal" class="big-text">0回</div>
+            </div>
+          </div>
+
+          <div class="next-rate-box">
+            <span class="label">次の石の成功率</span>
+            <strong id="nextRate">100%</strong>
+          </div>
+
+          <div class="mode-rule">
+            <span class="label">このモードのルール</span>
+            <p id="modeRuleText">失敗しても積み数は減りません。何度でも挑戦できます。</p>
+          </div>
+        </div>
+
+        <div class="card mode-card">
+          <div class="section-title">モード切替</div>
+          <div class="mode-buttons">
+            <button id="mode-normal" class="mode-btn active" data-mode="normal" type="button">ノーマル</button>
+            <button id="mode-hard" class="mode-btn locked" data-mode="hard" type="button">ハード</button>
+            <button id="mode-hell" class="mode-btn locked" data-mode="hell" type="button">ヘル</button>
+          </div>
+
+          <div class="unlock-box">
+            <div class="section-title small">解禁状況</div>
+            <ul id="unlockList" class="unlock-list">
+              <li>ノーマル：解放済み</li>
+              <li>ハード：ノーマルで20個達成で解禁</li>
+              <li>ヘル：ハードで20個達成で解禁</li>
+            </ul>
+          </div>
+        </div>
+
+        <button id="placeButton" class="place-button" type="button">石を置く</button>
+        <button id="transferButtonMobile" class="transfer-button mobile-transfer-button" type="button">引き継ぎはこちら</button>
+      </section>
+    </main>
+  </div>
+
+  <div id="transferModal" class="transfer-modal" hidden>
+    <div id="transferBackdrop" class="transfer-backdrop"></div>
+    <div class="transfer-dialog card" role="dialog" aria-modal="true" aria-labelledby="transferTitle">
+      <div class="transfer-head">
+        <h2 id="transferTitle">引き継ぎはこちら</h2>
+        <button id="transferCloseButton" class="transfer-close-button" type="button" aria-label="閉じる">×</button>
+      </div>
+
+      <div class="transfer-section">
+        <div class="label">今のセーブデータコード</div>
+        <textarea id="transferCodeOutput" class="transfer-textarea" readonly spellcheck="false"></textarea>
+        <button id="copyTransferButton" class="transfer-action-button" type="button">コードをコピー</button>
+      </div>
+
+      <div class="transfer-section">
+        <div class="label">保存しておいたコードを貼り付けてください</div>
+        <textarea id="transferCodeInput" class="transfer-textarea" spellcheck="false"></textarea>
+        <button id="loadTransferButton" class="transfer-action-button" type="button">コードを読み込む</button>
+      </div>
+
+      <p class="transfer-note">セーブデータコードは、機種変更の前にメモ帳などへ保存してください。</p>
+      <p id="transferStatus" class="transfer-status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
