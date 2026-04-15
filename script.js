@@ -3,6 +3,8 @@
 
   const STORAGE_KEY = "ishikoro-tsumutsumu-save-v1";
   const TRANSFER_PREFIX = "ISTM1:";
+  const HEAVEN_RATE_MIN = 95;
+  const HEAVEN_RATE_MAX = 99;
 
   const RATE_TABLE = {
     1: 100,
@@ -36,13 +38,17 @@
       label: "ハード",
       rule: "失敗すると、積もうとした石と一番上の石が落ちて、積み数が1減ります。"
     },
+    heaven: {
+      label: "ヘブン",
+      rule: "成功率が高く、積み上げる楽しさを感じやすいモード。失敗すると上の石も1つ落ちます。"
+    },
     hell: {
       label: "ヘル",
       rule: "失敗すると全崩れ。積み数は0に戻ります。"
     }
   };
 
-  const MODES = ["normal", "hard", "hell"];
+  const MODES = ["normal", "hard", "heaven", "hell"];
 
   const canvas = document.getElementById("gameCanvas");
   const canvasOverlayTopEl = document.querySelector(".canvas-overlay-top");
@@ -57,6 +63,7 @@
 
   const highNormalEl = document.getElementById("high-normal");
   const highHardEl = document.getElementById("high-hard");
+  const highHeavenEl = document.getElementById("high-heaven");
   const highHellEl = document.getElementById("high-hell");
   const unlockListEl = document.getElementById("unlockList");
   const placeButton = document.getElementById("placeButton");
@@ -75,6 +82,7 @@
   const modeButtons = {
     normal: document.getElementById("mode-normal"),
     hard: document.getElementById("mode-hard"),
+    heaven: document.getElementById("mode-heaven"),
     hell: document.getElementById("mode-hell")
   };
 
@@ -82,22 +90,29 @@
     mode: "normal",
     unlocked: {
       hard: false,
+      heaven: false,
       hell: false
     },
     highscores: {
       normal: 0,
       hard: 0,
+      heaven: 0,
       hell: 0
     },
     totalPlaced: {
       normal: 0,
       hard: 0,
+      heaven: 0,
       hell: 0
     },
     savedStacks: {
       normal: [],
       hard: [],
+      heaven: [],
       hell: []
+    },
+    pendingRates: {
+      heaven: null
     },
     stack: [],
     fallingStones: [],
@@ -121,6 +136,23 @@
     return Math.random() * (max - min) + min;
   }
 
+  function rollHeavenRate() {
+    return Math.floor(rand(HEAVEN_RATE_MIN, HEAVEN_RATE_MAX + 1));
+  }
+
+  function sanitizeHeavenRate(value) {
+    const num = Math.floor(Number(value));
+    if (Number.isFinite(num) && num >= HEAVEN_RATE_MIN && num <= HEAVEN_RATE_MAX) {
+      return num;
+    }
+    return rollHeavenRate();
+  }
+
+  function ensurePendingHeavenRate() {
+    state.pendingRates.heaven = sanitizeHeavenRate(state.pendingRates.heaven);
+    return state.pendingRates.heaven;
+  }
+
   function easeOutBack(t) {
     const c1 = 1.70158;
     const c3 = c1 + 1;
@@ -132,6 +164,20 @@
       return RATE_TABLE[nextStoneCount];
     }
     return 20;
+  }
+
+  function getCurrentAttemptRate(nextStoneCount) {
+    if (state.mode === "heaven") {
+      return ensurePendingHeavenRate();
+    }
+    return getRate(nextStoneCount);
+  }
+
+  function getNextRateText() {
+    if (state.mode === "heaven") {
+      return `${ensurePendingHeavenRate()}%`;
+    }
+    return `${getRate(state.stack.length + 1)}%`;
   }
 
   function sanitizeNumber(value, fallback) {
@@ -262,17 +308,23 @@
       mode: MODE_DATA[state.mode] ? state.mode : "normal",
       unlocked: {
         hard: !!state.unlocked.hard,
+        heaven: !!state.unlocked.heaven,
         hell: !!state.unlocked.hell
       },
       highscores: {
         normal: sanitizeCount(state.highscores.normal),
         hard: sanitizeCount(state.highscores.hard),
+        heaven: sanitizeCount(state.highscores.heaven),
         hell: sanitizeCount(state.highscores.hell)
       },
       totalPlaced: {
         normal: sanitizeCount(state.totalPlaced.normal),
         hard: sanitizeCount(state.totalPlaced.hard),
+        heaven: sanitizeCount(state.totalPlaced.heaven),
         hell: sanitizeCount(state.totalPlaced.hell)
+      },
+      pendingRates: {
+        heaven: sanitizeHeavenRate(state.pendingRates.heaven)
       },
       modeStacks
     };
@@ -286,23 +338,27 @@
     const nextHighscores = {
       normal: sanitizeCount(rawData.highscores?.normal),
       hard: sanitizeCount(rawData.highscores?.hard),
+      heaven: sanitizeCount(rawData.highscores?.heaven),
       hell: sanitizeCount(rawData.highscores?.hell)
     };
 
     const nextTotalPlaced = {
       normal: sanitizeCount(rawData.totalPlaced?.normal),
       hard: sanitizeCount(rawData.totalPlaced?.hard),
+      heaven: sanitizeCount(rawData.totalPlaced?.heaven),
       hell: sanitizeCount(rawData.totalPlaced?.hell)
     };
 
     const nextUnlocked = {
       hard: !!rawData.unlocked?.hard,
+      heaven: !!rawData.unlocked?.heaven,
       hell: !!rawData.unlocked?.hell
     };
 
     const nextSavedStacks = {
       normal: [],
       hard: [],
+      heaven: [],
       hell: []
     };
 
@@ -317,6 +373,9 @@
     if (nextMode === "hard" && !nextUnlocked.hard) {
       nextMode = "normal";
     }
+    if (nextMode === "heaven" && !nextUnlocked.heaven) {
+      nextMode = "normal";
+    }
     if (nextMode === "hell" && !nextUnlocked.hell) {
       nextMode = "normal";
     }
@@ -326,6 +385,9 @@
     state.highscores = nextHighscores;
     state.totalPlaced = nextTotalPlaced;
     state.savedStacks = nextSavedStacks;
+    state.pendingRates = {
+      heaven: sanitizeHeavenRate(rawData.pendingRates?.heaven)
+    };
     state.stack = cloneSavedStack(state.savedStacks[state.mode]);
     state.fallingStones = [];
     state.animating = false;
@@ -336,6 +398,7 @@
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
+        state.pendingRates.heaven = rollHeavenRate();
         state.stack = [];
         return;
       }
@@ -345,16 +408,21 @@
       console.warn("セーブデータの読み込みに失敗しました。", error);
       state.mode = "normal";
       state.unlocked.hard = false;
+      state.unlocked.heaven = false;
       state.unlocked.hell = false;
       state.highscores.normal = 0;
       state.highscores.hard = 0;
+      state.highscores.heaven = 0;
       state.highscores.hell = 0;
       state.totalPlaced.normal = 0;
       state.totalPlaced.hard = 0;
+      state.totalPlaced.heaven = 0;
       state.totalPlaced.hell = 0;
       state.savedStacks.normal = [];
       state.savedStacks.hard = [];
+      state.savedStacks.heaven = [];
       state.savedStacks.hell = [];
+      state.pendingRates.heaven = rollHeavenRate();
       state.stack = [];
       state.fallingStones = [];
       state.animating = false;
@@ -611,21 +679,33 @@
   }
 
   function updateUnlocksIfNeeded() {
-    let unlockedText = "";
+    const unlockedModes = [];
 
-    if (state.mode === "normal" && state.stack.length >= 20 && !state.unlocked.hard) {
-      state.unlocked.hard = true;
-      unlockedText = " ハードモード解禁！";
+    if (state.mode === "normal" && state.stack.length >= 20) {
+      if (!state.unlocked.hard) {
+        state.unlocked.hard = true;
+        unlockedModes.push("ハード");
+      }
+      if (!state.unlocked.heaven) {
+        state.unlocked.heaven = true;
+        unlockedModes.push("ヘブン");
+      }
     }
 
     if (state.mode === "hard" && state.stack.length >= 20 && !state.unlocked.hell) {
       state.unlocked.hell = true;
-      unlockedText = " ヘルモード解禁！";
+      unlockedModes.push("ヘル");
     }
 
-    if (unlockedText) {
-      setMessage(state.message + unlockedText);
+    if (unlockedModes.length === 1) {
+      return ` ${unlockedModes[0]}モード解禁！`;
     }
+
+    if (unlockedModes.length >= 2) {
+      return ` ${unlockedModes.join("モードと")}モード解禁！`;
+    }
+
+    return "";
   }
 
   function updateHighscore() {
@@ -639,16 +719,18 @@
     currentModeEl.textContent = MODE_DATA[state.mode].label;
     currentCountEl.textContent = `${state.stack.length}個`;
     currentTotalEl.textContent = `${state.totalPlaced[state.mode]}回`;
-    nextRateEl.textContent = `${getRate(state.stack.length + 1)}%`;
+    nextRateEl.textContent = getNextRateText();
     modeRuleTextEl.textContent = MODE_DATA[state.mode].rule;
 
     highNormalEl.textContent = state.highscores.normal;
     highHardEl.textContent = state.highscores.hard;
+    highHeavenEl.textContent = state.highscores.heaven;
     highHellEl.textContent = state.highscores.hell;
 
     unlockListEl.innerHTML = `
       <li>ノーマル：解放済み</li>
       <li>ハード：${state.unlocked.hard ? "解放済み" : "ノーマルで20個達成で解禁"}</li>
+      <li>ヘブン：${state.unlocked.heaven ? "解放済み" : "ノーマルで20個達成で解禁"}</li>
       <li>ヘル：${state.unlocked.hell ? "解放済み" : "ハードで20個達成で解禁"}</li>
     `;
 
@@ -656,6 +738,7 @@
       const button = modeButtons[modeKey];
       const locked =
         (modeKey === "hard" && !state.unlocked.hard) ||
+        (modeKey === "heaven" && !state.unlocked.heaven) ||
         (modeKey === "hell" && !state.unlocked.hell);
 
       button.classList.toggle("active", state.mode === modeKey);
@@ -689,6 +772,12 @@
 
     if (mode === "hard" && !state.unlocked.hard) {
       setMessage("ハードモードは、ノーマルで20個積むと解禁されます。");
+      refreshUI();
+      return;
+    }
+
+    if (mode === "heaven" && !state.unlocked.heaven) {
+      setMessage("ヘブンモードは、ノーマルで20個積むと解禁されます。");
       refreshUI();
       return;
     }
@@ -740,10 +829,10 @@
     const stone = createStoneSeed();
     state.stack.push(stone);
     updateHighscore();
-    updateUnlocksIfNeeded();
+    const unlockSuffix = updateUnlocksIfNeeded();
     save();
 
-    setMessage(`石がうまく乗った！ ${nextCount}個達成。`);
+    setMessage(`石がうまく乗った！ ${nextCount}個達成。${unlockSuffix}`);
     refreshUI();
 
     window.setTimeout(() => {
@@ -868,8 +957,12 @@
     refreshUI();
 
     const nextCount = state.stack.length + 1;
-    const successRate = getRate(nextCount);
+    const successRate = getCurrentAttemptRate(nextCount);
     const success = Math.random() * 100 < successRate;
+
+    if (state.mode === "heaven") {
+      state.pendingRates.heaven = rollHeavenRate();
+    }
 
     if (success) {
       onSuccess(nextCount);
@@ -881,7 +974,7 @@
       return;
     }
 
-    if (state.mode === "hard") {
+    if (state.mode === "hard" || state.mode === "heaven") {
       onFailHard(nextCount);
       return;
     }
