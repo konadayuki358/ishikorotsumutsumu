@@ -209,7 +209,7 @@ textarea {
 
 .mode-buttons {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 
@@ -254,7 +254,7 @@ textarea {
 
 .score-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -555,11 +555,16 @@ textarea {
   }
 
   .compact-score-item span {
-    font-size: 0.68rem;
+    font-size: 0.64rem;
   }
 
   .compact-score-item strong {
-    font-size: 1.05rem;
+    font-size: 0.98rem;
+  }
+
+  .mode-btn {
+    padding: 11px 4px;
+    font-size: 0.84rem;
   }
 
   .canvas-message {
